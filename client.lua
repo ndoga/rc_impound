@@ -35,6 +35,39 @@ AddEventHandler('esx:setJob', function(job)
   PlayerData.job = job
 end)
 
+RegisterNetEvent('esx_marker:enter')
+AddEventHandler('esx_marker:enter', function(name)
+    if name == 'rc_impound' then
+        local playerPed = PlayerPedId()
+        local vehicle = ESX.Game.GetClosestVehicle()
+
+        if vehicle ~= 0 and vehicle ~= nil then
+            local coords = GetEntityCoords(playerPed)
+            local vehicleCoords = GetEntityCoords(vehicle)
+            local distance = GetDistanceBetweenCoords(coords, vehicleCoords, true)
+
+            if distance <= 5.0 then  -- Imposta una distanza appropriata per interagire con il veicolo
+                OpenImpoundMenu(vehicle)
+            else
+                ESX.ShowNotification("Non sei abbastanza vicino a un veicolo.")
+            end
+        else
+            ESX.ShowNotification("Nessun veicolo nelle vicinanze")
+        end
+    end
+end)
+
+function ImpoundVehicle(vehicle, fees, reason)
+    print("ImpoundVehicle called")
+    local vehicleProps = ESX.Game.GetVehicleProperties(vehicle)
+    ESX.Game.DeleteVehicle(vehicle)
+
+    ESX.TriggerServerCallback('rc_impound:impound', function()
+        ESX.ShowNotification("Il veicolo è stato sequestrato.")
+    end, vehicleProps, fees, reason)
+end
+
+
 Citizen.CreateThread(function()
     for k, v in pairs(Config.Impounder) do
         local blip = AddBlipForCoord(v.loc.x, v.loc.y, v.loc.z)
@@ -249,14 +282,14 @@ function openImpoundMenu()
             -- ...
             
             veh_impound.Activated = function(sender, index)
-                ESX.TriggerServerCallback('rc_impound:impoundVehicle', function(hasAnOwner)
+                ESX.TriggerServerCallback('rc_impound:impound', function(hasAnOwner)
                     if not hasAnOwner then
                         ShowNotification(Translation[Config.Locale]['vehicle_has_no_owner'])
                     else
                         ImpoundVehicle(v, currentCaution, 'reason')  -- sostituisci 'reason' con il motivo del sequestro appropriato
                     end
                 end, currentImpounder.name, GetVehicleNumberPlateText(v), GetEntityModel(v), cautionAllowed, currentCaution)
-            end
+            end            
 
         end
 
@@ -425,13 +458,3 @@ RegisterNetEvent('rc_impound:picturemsg')
 AddEventHandler('rc_impound:picturemsg', function(icon, msg, title, subtitle)
 	showPictureNotification(icon, msg, title, subtitle)
 end)
-
-function ImpoundVehicle(vehicle, fees, reason)
-    print("ImpoundVehicle called")
-    local vehicleProps = ESX.Game.GetVehicleProperties(vehicle)
-    ESX.Game.DeleteVehicle(vehicle)
-
-    ESX.TriggerServerCallback('rc_impound:impound', function()
-        ESX.ShowNotification("Il veicolo è stato sequestrato.")
-    end, vehicleProps, fees, reason)
-end

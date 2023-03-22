@@ -6,6 +6,10 @@ Config.useESXAdvancedGarage = true
 Config.giveCautionToSociety = true
 Config.society = 'society_aci'
 
+Config.AllowedJobs = {
+    'aci'
+}
+
 Config.Jobname = 'aci'
 Config.Jobname2 = 'aci'
 Config.Jobname3 = 'aci'
@@ -16,9 +20,9 @@ Config.Impounder = {
         name = 'Police Impound',
         blipSprite = 67,
         blipColor = 17,
-        loc = {x = 396.8, y = -1638.2, z = 29.29, rot = 322.07},
+        loc = {x = -557.5995, y = -922.3654, z = 23.8801, rot = 298.4970},
         pedModel = 's_m_y_garbage',
-        park = {x = 401.35, y = -1632.19, z = 29.29, rot = 322.6},
+        park = {x = -556.6218, y = -920.3134, z = 23.1978, rot = 91.9582},
         spawn = {x = 401.36, y = -1647.98, z = 29.29, rot = 318.54},
     },
 
@@ -26,9 +30,9 @@ Config.Impounder = {
         name = 'ACI - Officina e Sequestri',
         blipSprite = 237,
         blipColor = 0,
-        loc = {x = -559.2202, y = -925.5524, z = 23.8683, rot = 234.7767},
+        loc = {x = -557.5995, y = -922.3654, z = 23.8801, rot = 298.4970},
         pedModel = 's_m_y_garbage',
-        park = {x = -543.4366, y = -891.1689, z = 24.8350, rot = 179.5190},
+        park = {x = -556.6218, y = -920.3134, z = 23.1978, rot = 91.9582},
         spawn = {x = -543.4366, y = -891.1689, z = 24.8350, rot = 179.5190},
     },
 

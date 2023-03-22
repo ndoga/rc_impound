@@ -34,8 +34,8 @@ ESX.RegisterServerCallback('rc_impound:decodeProps', function(source, cb, vehPro
     cb(decodedProps)
 end)
 
-ESX.RegisterServerCallback('rc_impound:impoundVehicle', function(source, cb, impoundName, plate, model, cautionAllowed, caution)
-    local officerPlayer = ESX.GetPlayerFromId(source)
+ESX.RegisterServerCallback('rc_impound:impound', function(source, cb, vehicleProps, fees, reason)
+    local xPlayer = ESX.GetPlayerFromId(source)
     local dateString = os.date("%x")
 
     local xPlayer = ESX.GetPlayerFromId(playerId)
