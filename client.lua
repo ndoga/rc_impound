@@ -132,12 +132,12 @@ function openImpoundMenu()
     ImpoundMenu = NativeUI.CreateMenu(Translation[Config.Locale]['impound'], nil)
     _menuPool:Add(ImpoundMenu)
 
-    local myImpoundedVehicles_sub = _menuPool:AddSubMenu(ImpoundMenu, Translation[Config.Locale]['my_impounded_vehicles'], '~b~')
-    ESX.TriggerServerCallback('myImpound:retrieveOwnedImpoundedVehicles', function(impoundVehicles)
+    local rc_impoundedVehicles_sub = _menuPool:AddSubMenu(ImpoundMenu, Translation[Config.Locale]['my_impounded_vehicles'], '~b~')
+    ESX.TriggerServerCallback('rc_impound:retrieveOwnedImpoundedVehicles', function(impoundVehicles)
         if impoundVehicles ~= nil and #impoundVehicles > 0 then
             for k, v in pairs(impoundVehicles) do
-                local vehicleSubmenu = _menuPool:AddSubMenu(myImpoundedVehicles_sub, GetLabelText(GetDisplayNameFromVehicleModel(tonumber(v.vehicleModel))), Translation[Config.Locale]['desc_impound_by'] .. v.officerCharname)
-                myImpoundedVehicles_sub.Items[k]:RightLabel(v.vehiclePlate)
+                local vehicleSubmenu = _menuPool:AddSubMenu(rc_impoundedVehicles_sub, GetLabelText(GetDisplayNameFromVehicleModel(tonumber(v.vehicleModel))), Translation[Config.Locale]['desc_impound_by'] .. v.officerCharname)
+                rc_impoundedVehicles_sub.Items[k]:RightLabel(v.vehiclePlate)
 
                 local vehicleModel = NativeUI.CreateItem(Translation[Config.Locale]['vehicle_model'], '~b~')
                 vehicleModel:RightLabel('~s~' .. GetLabelText(GetDisplayNameFromVehicleModel(tonumber(v.vehicleModel))))
@@ -169,7 +169,7 @@ function openImpoundMenu()
                     cautionAllowed:RightLabel(Translation[Config.Locale]['yes'])
 
                     local cautionAmount = NativeUI.CreateItem(Translation[Config.Locale]['caution'], '~b~')
-                    cautionAmount:RightLabel('~r~' .. v.caution .. '$')
+                    cautionAmount:RightLabel('~r~' .. v.caution .. '€')
                     vehicleSubmenu:AddItem(cautionAmount)
 
                     local spacerItem2 = NativeUI.CreateItem('~b~', '~b~')
@@ -181,10 +181,10 @@ function openImpoundMenu()
 
                     releaseVehicle.Activated = function(sender, index)
                         -- pay the bill
-                        ESX.TriggerServerCallback('myImpound:checkCanPayCaution', function(hasEnoughMoney)
+                        ESX.TriggerServerCallback('rc_impound:checkCanPayCaution', function(hasEnoughMoney)
                             if hasEnoughMoney then
                                 _menuPool:CloseAllMenus()
-                                TriggerServerEvent('myImpound:releaseVehicle', v.owner, v.vehiclePlate, v.vehicleProps, v.vehicleType, v.vehicleJob)
+                                TriggerServerEvent('rc_impound:releaseVehicle', v.owner, v.vehiclePlate, v.vehicleProps, v.vehicleType, v.vehicleJob)
                                 SpawnVehicle(v.vehicleModel, currentImpounder.spawn, currentImpounder.spawn.rot, v.vehicleProps)
                                 showPictureNotification('CHAR_PROPERTY_TOWING_IMPOUND', Translation[Config.Locale]['caution_paid'] .. v.vehiclePlate .. Translation[Config.Locale]['caution_paid2'] .. v.caution .. Translation[Config.Locale]['caution_paid3'], Translation[Config.Locale]['impound'], '')
                             else
@@ -235,7 +235,7 @@ function openImpoundMenu()
                 local caution_res = CreateDialog(Translation[Config.Locale]['set_caution'])
                 if caution_res ~= nil and tonumber(caution_res) then
                     currentCaution = tonumber(caution_res)
-                    setCaution:RightLabel('~r~' .. currentCaution .. '$')
+                    setCaution:RightLabel('~r~' .. currentCaution .. '€')
                 end
             end
 
@@ -245,13 +245,15 @@ function openImpoundMenu()
             local veh_impound = NativeUI.CreateItem(Translation[Config.Locale]['impound_vehicle_final'], '~b~')
             veh_impound:SetRightBadge(BadgeStyle.Alert)
             vehInArea_sub:AddItem(veh_impound)
-
+            
+            -- ...
+            
             veh_impound.Activated = function(sender, index)
-                ESX.TriggerServerCallback('myImpound:impoundVehicle', function(hasAnOwner)
+                ESX.TriggerServerCallback('rc_impound:impoundVehicle', function(hasAnOwner)
                     if not hasAnOwner then
                         ShowNotification(Translation[Config.Locale]['vehicle_has_no_owner'])
                     else
-                        ESX.Game.DeleteVehicle(v)
+                        ImpoundVehicle(v, currentCaution, 'reason')  -- sostituisci 'reason' con il motivo del sequestro appropriato
                     end
                 end, currentImpounder.name, GetVehicleNumberPlateText(v), GetEntityModel(v), cautionAllowed, currentCaution)
             end
@@ -260,7 +262,7 @@ function openImpoundMenu()
 
         local impoundedVehicles_sub = _menuPool:AddSubMenu(ImpoundMenu, Translation[Config.Locale]['impounded_vehicles'], nil)
 
-        ESX.TriggerServerCallback('myImpound:retrieveImpoundVehicles', function(impoundVehicles)
+        ESX.TriggerServerCallback('rc_impound:retrieveImpoundVehicles', function(impoundVehicles)
             if impoundVehicles ~= nil and #impoundVehicles > 0 then
                 for k, v in pairs(impoundVehicles) do
                     local vehicleSubmenu = _menuPool:AddSubMenu(impoundedVehicles_sub, Translation[Config.Locale]['vehicle_of'] .. v.ownerCharname, Translation[Config.Locale]['impounded_by'] .. v.officerCharname)
@@ -299,7 +301,7 @@ function openImpoundMenu()
                     vehicleSubmenu.OnCheckboxChange = function(sender, item, checked_)
                         if item == cautionAllowedCheckbox then
                             v.cautionAllowed = checked_
-                            TriggerServerEvent('myImpound:changeCautionAllowed', v.owner, v.vehiclePlate, v.cautionAllowed)
+                            TriggerServerEvent('rc_impound:changeCautionAllowed', v.owner, v.vehiclePlate, v.cautionAllowed)
                             if v.cautionAllowed then
                                 ShowNotification(Translation[Config.Locale]['caution_changed_true'])
                             else
@@ -321,7 +323,7 @@ function openImpoundMenu()
                             if caution_res ~= nil and tonumber(caution_res) then
                                 v.caution = tonumber(caution_res)
                                 cautionAmount:RightLabel('~r~' .. v.caution .. '$')
-                                TriggerServerEvent('myImpound:changeCaution', v.owner, v.vehiclePlate, v.caution)
+                                TriggerServerEvent('rc_impound:changeCaution', v.owner, v.vehiclePlate, v.caution)
                             end
                         end
 
@@ -338,7 +340,7 @@ function openImpoundMenu()
 
                     releaseVehicle.Activated = function(sender, index)
                         _menuPool:CloseAllMenus()
-                        TriggerServerEvent('myImpound:releaseVehicle', v.owner, v.vehiclePlate, v.vehicleProps, v.vehicleType, v.vehicleJob)
+                        TriggerServerEvent('rc_impound:releaseVehicle', v.owner, v.vehiclePlate, v.vehicleProps, v.vehicleType, v.vehicleJob)
                         SpawnVehicle(v.vehicleModel, currentImpounder.spawn, currentImpounder.spawn.rot, v.vehicleProps)
                         showPictureNotification('CHAR_PROPERTY_TOWING_IMPOUND', Translation[Config.Locale]['released_vehicle'] .. v.vehiclePlate .. Translation[Config.Locale]['released_vehicle2'], Translation[Config.Locale]['impound'], '')
                     
@@ -363,7 +365,7 @@ function SpawnVehicle(modelHash, pos, rot, vehProps)
     local model = GetDisplayNameFromVehicleModel(tonumber(modelHash))
 
     local newVehProps = {}
-    ESX.TriggerServerCallback('myImpound:decodeProps', function(vehProps_res)
+    ESX.TriggerServerCallback('rc_impound:decodeProps', function(vehProps_res)
 
         newVehProps = vehProps_res
 
@@ -419,7 +421,17 @@ function showPictureNotification(icon, msg, title, subtitle)
     DrawNotification(false, true);
 end
 
-RegisterNetEvent('myImpound:picturemsg')
-AddEventHandler('myImpound:picturemsg', function(icon, msg, title, subtitle)
+RegisterNetEvent('rc_impound:picturemsg')
+AddEventHandler('rc_impound:picturemsg', function(icon, msg, title, subtitle)
 	showPictureNotification(icon, msg, title, subtitle)
 end)
+
+function ImpoundVehicle(vehicle, fees, reason)
+    print("ImpoundVehicle called")
+    local vehicleProps = ESX.Game.GetVehicleProperties(vehicle)
+    ESX.Game.DeleteVehicle(vehicle)
+
+    ESX.TriggerServerCallback('rc_impound:impound', function()
+        ESX.ShowNotification("Il veicolo è stato sequestrato.")
+    end, vehicleProps, fees, reason)
+end

@@ -4,9 +4,9 @@ For support and further updates you can join my Discord: https://discord.gg/UyAu
 Installation:
 1.) Put the scripts in your ressources folder
 2.) Import the impound.sql to your database
-3.) Add 'start myImpound' to your server.cfg
+3.) Add 'start rc_impound' to your server.cfg
 
 Pay attention that ESX and NativeUI are running.
-Download Link for NativeUI: https://github.com/FrazzIe/NativeUILua
+
 
 

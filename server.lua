@@ -1,7 +1,8 @@
-ESX = nil
+local ESX = nil
+
 TriggerEvent('esx:getSharedObject', function(obj) ESX = obj end)
 
-ESX.RegisterServerCallback('myImpound:retrieveImpoundVehicles', function(source, cb, impoundName)
+ESX.RegisterServerCallback('rc_impound:retrieveImpoundVehicles', function(source, cb, impoundName)
     MySQL.Async.fetchAll(
     'SELECT * FROM impound_vehicles WHERE impoundName = @impoundName',
     {
@@ -13,7 +14,7 @@ ESX.RegisterServerCallback('myImpound:retrieveImpoundVehicles', function(source,
     )
 end)
 
-ESX.RegisterServerCallback('myImpound:retrieveOwnedImpoundedVehicles', function(source, cb, impoundName)
+ESX.RegisterServerCallback('rc_impound:retrieveOwnedImpoundedVehicles', function(source, cb, impoundName)
   local xPlayer = ESX.GetPlayerFromId(source)
 
   MySQL.Async.fetchAll(
@@ -28,79 +29,104 @@ ESX.RegisterServerCallback('myImpound:retrieveOwnedImpoundedVehicles', function(
     )
 end)
 
-ESX.RegisterServerCallback('myImpound:decodeProps', function(source, cb, vehProps)
+ESX.RegisterServerCallback('rc_impound:decodeProps', function(source, cb, vehProps)
     local decodedProps = json.decode(vehProps)
     cb(decodedProps)
 end)
 
-ESX.RegisterServerCallback('myImpound:impoundVehicle', function(source, cb, impoundName, plate, model, cautionAllowed, caution)
-  local officerPlayer = ESX.GetPlayerFromId(source)
-  local dateString = os.date("%x")
+ESX.RegisterServerCallback('rc_impound:impoundVehicle', function(source, cb, impoundName, plate, model, cautionAllowed, caution)
+    local officerPlayer = ESX.GetPlayerFromId(source)
+    local dateString = os.date("%x")
 
-  MySQL.Async.fetchAll('SELECT * FROM owned_vehicles WHERE `plate` = @plate', {['@plate'] = plate}, function(result)
-      if #result > 0 then
-          local vehicleData = json.decode(result[1].vehicle)
+    local xPlayer = ESX.GetPlayerFromId(playerId)
 
-          if vehicleData.model == model then
-              -- vehicle is owned and can be impounded
+    if xPlayer then
+        local allowed = false
+        
+        print("JOBS NOT ALLOWED")
 
-              local ownerIdentifier = result[1].owner
-              GetCharName(ownerIdentifier, function(ownerCharname)
-                  local vehicleProps = result[1].vehicle
-                  GetCharName(officerPlayer.identifier, function(officerCharname)
-                      local typeResult, jobResult
+        for i=1, #Config.AllowedJobs, 1 do
+            local job = Config.AllowedJobs[i]
 
-                      if Config.useESXAdvancedGarage then
-                          typeResult = result[1].type
-                          jobResult = result[1].job
-                      end
+            print("Job name:" , xPlayer.job.name)
 
-                      MySQL.Async.execute(
-                          'INSERT INTO impound_vehicles (timeStamp, impoundName, owner, ownerCharname, vehicleModel, vehiclePlate, vehicleProps, officer, officerCharname, cautionAllowed, caution, vehicleType, vehicleJob) VALUES (@timeStamp, @impoundName, @owner, @ownerCharname, @vehicleModel, @vehiclePlate, @vehicleProps, @officer, @officerCharname, @cautionAllowed, @caution, @type, @job)', {
-                          ['@timeStamp'] = dateString, 
-                          ['@impoundName'] = impoundName, 
-                          ['@owner'] = ownerIdentifier, 
-                          ['@ownerCharname'] = ownerCharname, 
-                          ['@vehicleModel'] = model, 
-                          ['@vehiclePlate'] = plate, 
-                          ['@vehicleProps'] = vehicleProps, 
-                          ['@officer'] = officerPlayer.identifier, 
-                          ['@officerCharname'] = officerCharname, 
-                          ['@cautionAllowed'] = cautionAllowed, 
-                          ['@caution'] = caution, 
-                          ['@type'] = typeResult, 
-                          ['@job'] = jobResult, 
-                      }, function(rowsChanged)
-                          if rowsChanged > 0 then
-                              MySQL.Async.execute(
-                                  'DELETE FROM owned_vehicles WHERE `plate` = @plate AND `owner` = @owner', {
-                                  ['@plate'] = plate, 
-                                  ['@owner'] = ownerIdentifier, 
-                              }, function(rowsDeleted)
-                                  if rowsDeleted > 0 then
-                                      -- Send confirmation to officer and player 
-                                      TriggerClientEvent('myImpound:picturemsg', source, 'CHAR_PROPERTY_TOWING_IMPOUND', Translation[Config.Locale]['vehicle_impounded'] .. plate .. Translation[Config.Locale]['vehicle_impounded2'], Translation[Config.Locale]['impound'], '')
-                                      cb(true)
-                                  else
-                                      cb(false)
-                                  end
-                              end)
-                          else
-                              cb(false)
-                          end
-                      end)
-                  end)
-              end)
-          else
-              cb(false)
-          end
-      else
-          cb(false)
-      end
-  end)
+            if xPlayer.job.name == job then
+                allowed = true
+                print("JOBS ALLOWED", job)
+                break
+            end
+        end
+
+        if allowed then
+
+            MySQL.Async.fetchAll('SELECT * FROM `owned_vehicles` WHERE `plate` = @plate', {['@plate'] = vehicleProps.plate}, function(result)
+                if #result > 0 then
+                    local vehicleData = json.decode(result[1].vehicle)
+
+                    print("Vehicle owner:", xPlayer.identifier)
+                    print("Vehicle plate:", vehicleProps.plate)
+
+                    local ownerIdentifier = result[1].owner
+                    GetCharName(ownerIdentifier, function(ownerCharname)
+
+                        local vehicleProps = result[1].vehicle
+                        GetCharName(officerPlayer.identifier, function(officerCharname)
+                            local typeResult, jobResult
+
+                            if Config.useESXAdvancedGarage then
+                                typeResult = result[1].type
+                                jobResult = result[1].job
+
+                                print("Check job", jobResult )
+
+                            end
+
+                            MySQL.Async.execute(
+                                'INSERT INTO impound_vehicles (timeStamp, impoundName, owner, ownerCharname, vehicleModel, vehiclePlate, vehicleProps, officer, officerCharname, cautionAllowed, caution, vehicleType, vehicleJob) VALUES (@timeStamp, @impoundName, @owner, @ownerCharname, @vehicleModel, @vehiclePlate, @vehicleProps, @officer, @officerCharname, @cautionAllowed, @caution, @type, @job)', {
+                                ['@timeStamp'] = dateString, 
+                                ['@impoundName'] = impoundName, 
+                                ['@owner'] = ownerIdentifier, 
+                                ['@ownerCharname'] = ownerCharname, 
+                                ['@vehicleModel'] = model, 
+                                ['@vehiclePlate'] = vehicleProps.plate,
+                                ['@vehicleProps'] = vehicleProps, 
+                                ['@officer'] = officerPlayer.identifier, 
+                                ['@officerCharname'] = officerCharname, 
+                                ['@cautionAllowed'] = cautionAllowed, 
+                                ['@caution'] = caution, 
+                                ['@type'] = typeResult, 
+                                ['@job'] = jobResult, 
+                            }, function(rowsChanged)
+                                if rowsChanged > 0 then
+                                    MySQL.Async.execute(
+                                        'DELETE FROM owned_vehicles WHERE `plate` = @plate', {
+                                            ['@plate'] = string.upper(tostring(plate))
+                                    }, function(rowsDeleted)
+                                        if rowsDeleted > 0 then
+                                            -- Send confirmation to officer and player 
+                                            TriggerClientEvent('rc_impound:picturemsg', source, 'CHAR_PROPERTY_TOWING_IMPOUND', Translation[Config.Locale]['vehicle_impounded'] .. plate .. Translation[Config.Locale]['vehicle_impounded2'], Translation[Config.Locale]['impound'], '')
+                                            cb(true)
+                                        else
+                                            cb(false)
+                                        end
+                                    end)
+                                else
+                                    cb(false)
+                                end
+                            end)
+                        end)
+                    end)
+                else
+                    cb(false)
+                end
+            end)
+        else
+            -- ...
+        end
+    end
 end)
 
-ESX.RegisterServerCallback('myImpound:checkCanPayCaution', function(source, cb, price)
+ESX.RegisterServerCallback('rc_impound:checkCanPayCaution', function(source, cb, price)
     local xPlayer = ESX.GetPlayerFromId(source)
 
     if xPlayer.getMoney() >= price then
@@ -119,8 +145,8 @@ ESX.RegisterServerCallback('myImpound:checkCanPayCaution', function(source, cb, 
 
 end)
 
-RegisterServerEvent('myImpound:releaseVehicle')
-AddEventHandler('myImpound:releaseVehicle', function(owner, plate, vehicleProps, vehicleType, vehicleJob)
+RegisterServerEvent('rc_impound:releaseVehicle')
+AddEventHandler('rc_impound:releaseVehicle', function(owner, plate, vehicleProps, vehicleType, vehicleJob)
 
     if Config.useESXAdvancedGarage then
         MySQL.Async.execute('INSERT INTO owned_vehicles (owner, plate, vehicle, type, job) VALUES (@owner, @plate, @vehicle, @type, @job)', {
@@ -149,8 +175,8 @@ AddEventHandler('myImpound:releaseVehicle', function(owner, plate, vehicleProps,
 
 end)
 
-RegisterServerEvent('myImpound:changeCaution')
-AddEventHandler('myImpound:changeCaution', function(owner, plate, newcaution)
+RegisterServerEvent('rc_impound:changeCaution')
+AddEventHandler('rc_impound:changeCaution', function(owner, plate, newcaution)
 
     MySQL.Async.execute('UPDATE impound_vehicles SET caution = @newcaution WHERE owner = @owner AND vehiclePlate = @vehiclePlate', {
         ['@newcaution']   = newcaution,
@@ -161,8 +187,8 @@ AddEventHandler('myImpound:changeCaution', function(owner, plate, newcaution)
 
 end)
 
-RegisterServerEvent('myImpound:changeCautionAllowed')
-AddEventHandler('myImpound:changeCautionAllowed', function(owner, plate, newcautionallowed)
+RegisterServerEvent('rc_impound:changeCautionAllowed')
+AddEventHandler('rc_impound:changeCautionAllowed', function(owner, plate, newcautionallowed)
 
     MySQL.Async.execute('UPDATE impound_vehicles SET cautionAllowed = @cautionAllowed WHERE owner = @owner AND vehiclePlate = @vehiclePlate', {
         ['@cautionAllowed']   = newcautionallowed,

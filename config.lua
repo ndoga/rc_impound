@@ -1,7 +1,7 @@
 Config = {}
 Config.Locale = 'en'
 
-Config.useESXAdvancedGarage = false
+Config.useESXAdvancedGarage = true
 
 Config.giveCautionToSociety = true
 Config.society = 'society_aci'
